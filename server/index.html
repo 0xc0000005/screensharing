@@ -1,0 +1,35 @@
+<html>
+<body>
+
+<img id="screenshort" src="screenshort" alt="Screenshort" style="width:960px; height:540px; display:inline-block; float:left;"/>
+
+<div id="chatwindow" style="overflow-y:scroll; width: 500px; height:540px; border-style:solid; border-width:1px; display:inline-block; float:left;"></div>
+
+<div style="clear:left; height:10px;"></div>
+
+<form id="message-form" action="/new-message" title="" method="post" style="clear:left;">
+<input type="text" name="message" style="width:1460px;"/>
+<input type="submit" style="display:none;"/>
+</form>
+
+<script type='text/javascript'>
+
+window.onload = function () {
+  document.getElementById('message-form').onsubmit = function(event) {
+    event.preventDefault();
+    //alert(this.action);
+    //alert(this.message.value);
+
+    var url = this.action;
+    var msg = encodeURIComponent(this.message.value);
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    xhr.send(msg);
+    this.message.value = "";
+  };
+};
+
+</script>
+</body>
+</html>

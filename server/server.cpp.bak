@@ -1,0 +1,128 @@
+// server.cpp : Defines the entry point for the console application.
+//
+
+
+#include "stdafx.h"
+#include <memory>
+
+//#include <Windows.h>
+//#include <gdiplus.h>
+
+//
+//using namespace Gdiplus;
+//
+//int GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
+//{
+//    UINT num = 0;     // number of image encoders
+//    UINT size = 0;    // size of the image encoder array in bytes
+//    GetImageEncodersSize(&num, &size);
+//    if (size == 0)
+//        return false;
+//
+//    auto buf =std::make_unique<BYTE[]>(size);
+//    auto codecs = reinterpret_cast<ImageCodecInfo*>(buf.get());
+//
+//    GetImageEncoders(num, size, codecs);
+//    for (UINT i = 0; i < num; ++i) {
+//        auto codec = codecs[i];
+//        if (wcscmp(codec.MimeType, format) == 0) {
+//            *pClsid = codecs[i].Clsid;
+//            return true;
+//        }
+//    }
+//    return false;
+//}
+//
+//bool BitmapToJpeg(HBITMAP hBitmap, int width, int height)
+//{
+//    CLSID pngClsid;
+//    if (GetEncoderClsid(L"image/png", &pngClsid)) {
+//        std::unique_ptr<Bitmap> bmp(Gdiplus::Bitmap::FromHBITMAP(hBitmap, nullptr));
+//        bmp->Save(L"d:/screen.png", &pngClsid, NULL);
+//        return true;
+//    }
+//    return false;
+//}
+//
+//bool CaptureWindow(HWND hWnd)
+//{
+//    auto hdcSrc = GetDC(hWnd);
+//    const int width = GetDeviceCaps(hdcSrc, HORZRES);
+//    const int height = GetDeviceCaps(hdcSrc, VERTRES);
+//
+//    auto hdcMem = CreateCompatibleDC(hdcSrc);
+//    auto hBitmap = CreateCompatibleBitmap(hdcSrc, width, height);
+//    auto hBitmapOld = (HBITMAP)SelectObject(hdcMem, hBitmap);
+//
+//    BitBlt(hdcMem, 0, 0, width, height, hdcSrc, 0, 0, SRCCOPY);
+//    hBitmap = (HBITMAP)SelectObject(hdcMem, hBitmapOld);
+//
+//    auto result = BitmapToJpeg(hBitmap, width, height);
+//
+//    DeleteObject(hBitmap);
+//    DeleteDC(hdcSrc);
+//    DeleteDC(hdcMem);
+//
+//    return true;
+//}
+//
+//int main()
+//{
+//    // Initialize GDI+.
+//    GdiplusStartupInput gdiplusStartupInput;
+//    ULONG_PTR gdiplusToken;
+//    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+//
+//    // Capture screen to bitmap
+//    CaptureWindow(nullptr);
+//
+//    GdiplusShutdown(gdiplusToken);
+//
+//    return 0;
+//}
+
+
+#include <memory>
+#include <cstdint>
+#include <iostream>
+#include <evhttp.h>
+int main()
+{
+    WSADATA wsaData;
+    WORD wVersionRequested = MAKEWORD(2, 2);
+    WSAStartup(wVersionRequested, &wsaData);
+
+    if (!event_init()) {
+        std::cerr << "Failed to init libevent." << std::endl;
+        return -1;
+    }
+
+    char const server_addr[] = "127.0.0.1";
+    std::uint16_t server_port = 5555;
+    std::unique_ptr<evhttp, decltype(&evhttp_free)> server(evhttp_start(server_addr, server_port), &evhttp_free);
+
+    if (!server) {
+        std::cerr << "Failed to init http server." << std::endl;
+        return -1;
+    }
+
+    void(*on_request)(evhttp_request *req, void *) = [](evhttp_request *req, void *) {
+        auto *out_buf = evhttp_request_get_output_buffer(req);
+        if (!out_buf)
+            return;
+        evbuffer_add_printf(out_buf, "<html><body><center><h1>Hello Wotld!</h1></center></body></html>");
+        evhttp_send_reply(req, HTTP_OK, "", out_buf);
+    };
+
+    evhttp_set_gencb(server.get(), on_request, nullptr);
+
+    if (event_base_dispatch() == -1)
+    {
+        std::cerr << "Failed to run messahe loop." << std::endl;
+        return -1;
+    }
+
+    WSACleanup();
+
+    return 0;
+}
