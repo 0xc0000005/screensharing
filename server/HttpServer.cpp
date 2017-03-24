@@ -4,14 +4,18 @@
 #include "Terminator.h"
 
 
-HttpServer::HttpServer(const char* server_addr, std::uint16_t server_port, ITerminator* terminator, unsigned int threads) :
+HttpServer::HttpServer(const char* server_addr, std::uint16_t server_port, ITerminator* terminator) :
     m_socket_binder(server_addr, server_port),
     m_terminator(terminator)
+{
+}
+
+void HttpServer::start(unsigned int threads)
 {
     for (unsigned int i = 0; i < threads; ++i) {
         std::promise<void> promise;
         auto future = promise.get_future();
-        std::thread thread(thread_runner, std::move(promise), std::ref<SocketBinder>(m_socket_binder), terminator);
+        std::thread thread(thread_runner, std::move(promise), std::ref<SocketBinder>(m_socket_binder), m_terminator);
         auto item = std::make_pair(std::move(thread), std::move(future));
         m_thread_pool.push_back(std::move(item));
     }

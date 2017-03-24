@@ -160,12 +160,14 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ChatRoom.cpp" />
     <ClCompile Include="HttpServer.cpp" />
     <ClCompile Include="RequestHandler.cpp" />
     <ClCompile Include="ScreenshotProvider.cpp" />
     <ClCompile Include="server.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ChatRoom.h" />
     <ClInclude Include="HttpServer.h" />
     <ClInclude Include="RequestHandler.h" />
     <ClInclude Include="ScreenshotProvider.h" />

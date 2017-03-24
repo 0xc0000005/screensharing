@@ -40,4 +40,8 @@ private:
     
     void response_with_file(evhttp_request* request, std::string filename, std::string content_type);
     void response_with_screenshort(evhttp_request* request);
+    void response_with_messages(evhttp_request* request);
+    void response_to_message(evhttp_request* request);
 };
+
+const std::string INDEX_HTML = "index.html";

@@ -5,6 +5,8 @@
 #include <gdiplus.h>
 #pragma warning(pop)
 
+#include <string>
+
 #include "ScreenshotProvider.h"
 
 using namespace Gdiplus;
@@ -96,13 +98,16 @@ ScreenshotProvider::~ScreenshotProvider()
     GdiplusShutdown(m_gdiplus_token);
 }
 
-ImagePtr_t ScreenshotProvider::update(TimeInt_t interval)
+ImagePtr_t ScreenshotProvider::update()
 {
-    if (is_expired(interval)) {
+    auto current_time = steady_clock::now().time_since_epoch().count();
+    auto passed = (current_time - m_last_updated) / std::chrono::steady_clock::period::den;
+
+    if (passed >= update_interval || m_screenshort == nullptr) {
         auto old_data = m_screenshort;
         std::lock_guard<std::mutex> lock(m_mutex);
         if (old_data == m_screenshort) {
-            m_last_updated = steady_clock::now();
+            m_last_updated = steady_clock::now().time_since_epoch().count();
             m_screenshort = CaptureWindow(nullptr);
         }
     }
@@ -110,8 +115,16 @@ ImagePtr_t ScreenshotProvider::update(TimeInt_t interval)
     return m_screenshort;
 }
 
-bool ScreenshotProvider::is_expired(TimeInt_t interval)
+bool ScreenshotProvider::is_expired(TimePoint_t since)
 {
-    auto current_time = steady_clock::now();
-    return (m_last_updated + interval < current_time);
+    update();
+    return !m_last_updated || m_last_updated > since;
+}
+
+bool ScreenshotProvider::is_expired(std::string since_str)
+{
+    long long since = 0;
+    try { since = std::stoll(since_str); } // force to 0 if any parsing errors
+    catch (...) {}
+    return is_expired(since);
 }

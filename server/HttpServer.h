@@ -19,12 +19,13 @@ class HttpServer
     ThreadPool_t m_thread_pool;
 
 public:
-    HttpServer(const char* server_addr, std::uint16_t server_port, ITerminator* terminator = nullptr, unsigned int threads = 0);
+    HttpServer(const char* server_addr, std::uint16_t server_port, ITerminator* terminator = nullptr);
     ~HttpServer() { stop(); }
 
     HttpServer(const HttpServer&) = delete;
     HttpServer& operator=(const HttpServer&) = delete;
 
+    void start(unsigned int threads);
     void stop();
 
 private:

@@ -5,6 +5,10 @@
 #include "Terminator.h"
 
 #include "ScreenshotProvider.h"
+#include "ChatRoom.h"
+
+typedef std::unique_ptr<evhttp_uri, decltype(&evhttp_uri_free)> RAII_evhttp_uri_t;
+typedef std::unique_ptr<evkeyvalq, decltype(&evhttp_clear_headers)> RAII_evkeyvalq_t;
 
 
 void SocketBinder::bind(evhttp* http_event)
@@ -47,7 +51,6 @@ void RequestHandler::run()
     }
 }
 
-
 void RequestHandler::generic_request_handler(evhttp_request* request, void* param)
 {
     RequestHandler* instance = reinterpret_cast<RequestHandler*>(param);
@@ -55,24 +58,23 @@ void RequestHandler::generic_request_handler(evhttp_request* request, void* para
     std::string uri = evhttp_request_get_uri(request);
     auto command = evhttp_request_get_command(request);
 
+    const std::string messages_uri = "/messages";
+    const std::string screenshort_uri = "/screenshort";
+
     if (command == EVHTTP_REQ_GET) {
         if (uri == "/")
-            return instance->response_with_file(request, "index.html", "text/html; charset=UTF-8");
-        if (uri == "/screenshort")
+            return instance->response_with_file(request, INDEX_HTML, "text/html; charset=UTF-8");
+        if (uri.compare(0, screenshort_uri.length(), screenshort_uri) == 0)
             return instance->response_with_screenshort(request);
+        if (uri.compare(0, messages_uri.length(), messages_uri) == 0)
+            return instance->response_with_messages(request);
 
         evhttp_send_error(request, HTTP_NOTFOUND, nullptr);
     }
 
-    if (command == EVHTTP_REQ_POST) {
-        auto buf = evhttp_request_get_input_buffer(request);
-        std::string data;
-        while (evbuffer_get_length(buf)) {
-            char cbuf[128];
-            int n = evbuffer_remove(buf, cbuf, sizeof(buf) - 1);
-            cbuf[n] = 0;
-            data += cbuf;
-        }
+    if (command == EVHTTP_REQ_PUT) {
+        if (uri == "/new-message")
+            return instance->response_to_message(request);
         evhttp_send_error(request, HTTP_BADREQUEST, nullptr);
     }
 }
@@ -95,22 +97,80 @@ void RequestHandler::response_with_file(evhttp_request* request, std::string fil
 
     auto out_buf = evhttp_request_get_output_buffer(request);
     evbuffer_add(out_buf, file_content.get(), file_size);
-    evhttp_send_reply(request, HTTP_OK, "", out_buf);
+    evhttp_send_reply(request, HTTP_OK, nullptr, out_buf);
 }
 
 void RequestHandler::response_with_screenshort(evhttp_request * request)
 {
+    const auto uri = evhttp_request_get_uri(request);
+    RAII_evhttp_uri_t parsed_uri(evhttp_uri_parse(uri), &evhttp_uri_free);
+    const auto query = evhttp_uri_get_query(parsed_uri.get());
+    evkeyvalq parsed_query;
+    evhttp_parse_query_str(query, &parsed_query);
+    RAII_evkeyvalq_t parsed_uri_guard(&parsed_query, &evhttp_clear_headers);
+
     auto headers = evhttp_request_get_output_headers(request);
     evhttp_add_header(headers, "Content-Type", "image/png");
+    evhttp_add_header(headers, "Cache-Control", "no-cache");
 
-    auto png_data = ScreenshotProvider::get();
+    const auto timestamp_str = evhttp_find_header(&parsed_query, "after");
+    const auto reload_str = evhttp_find_header(&parsed_query, "reload");
+    if (!reload_str && timestamp_str && !ScreenshotProvider::instance().is_expired(timestamp_str)) {
+        evhttp_send_reply(request, HTTP_NOTMODIFIED, nullptr, nullptr);
+        return;
+    }
+
+    auto png_data = ScreenshotProvider::instance().get();
     if (png_data->size()) {
         auto out_buf = evhttp_request_get_output_buffer(request);
         evbuffer_add(out_buf, png_data->data(), png_data->size());
-        evhttp_send_reply(request, HTTP_OK, "", out_buf);
+        evhttp_send_reply(request, HTTP_OK, nullptr, out_buf);
     }
     else {
         evhttp_send_error(request, HTTP_NOTFOUND, nullptr);
     }
+}
+
+void RequestHandler::response_with_messages(evhttp_request * request)
+{
+    const auto uri = evhttp_request_get_uri(request);
+    RAII_evhttp_uri_t parsed_uri(evhttp_uri_parse(uri), &evhttp_uri_free);
+    const auto query = evhttp_uri_get_query(parsed_uri.get());
+    evkeyvalq parsed_query;
+    evhttp_parse_query_str(query, &parsed_query);
+    RAII_evkeyvalq_t parsed_uri_guard(&parsed_query, &evhttp_clear_headers);
+    
+    const auto timestamp_str = evhttp_find_header(&parsed_query, "after");
+    if (timestamp_str) {
+        auto headers = evhttp_request_get_output_headers(request);
+        evhttp_add_header(headers, "Content-Type", "application/json");
+
+        auto json = ChatRoom::instance().json_messages_after(timestamp_str);
+
+        auto out_buf = evhttp_request_get_output_buffer(request);
+        evbuffer_add(out_buf, json.c_str(), json.length());
+        evhttp_send_reply(request, HTTP_OK, nullptr, out_buf);
+    }
+    else {
+        evhttp_send_error(request, HTTP_BADREQUEST, nullptr);
+    }
+}
+
+void RequestHandler::response_to_message(evhttp_request * request)
+{
+    auto buf = evhttp_request_get_input_buffer(request);
+    auto connection = evhttp_request_get_connection(request);
+    char* peer_addr;
+    ev_uint16_t peer_port;
+    evhttp_connection_get_peer(connection, &peer_addr, &peer_port);
+    std::string message;
+    while (evbuffer_get_length(buf)) {
+        char cbuf[128];
+        int n = evbuffer_remove(buf, cbuf, sizeof(buf) - 1);
+        cbuf[n] = 0;
+        message += cbuf;
+    }
+    ChatRoom::instance().put_message(message, peer_addr);
+    evhttp_send_reply(request, HTTP_OK, nullptr, nullptr);
 }
 

@@ -6,38 +6,36 @@
 #include <mutex>
 
 typedef std::shared_ptr<std::vector<unsigned char>> ImagePtr_t;
-typedef std::chrono::duration<unsigned int> TimeInt_t;
+typedef long long TimePoint_t;
 
 class ScreenshotProvider
 {
-    typedef std::chrono::steady_clock::time_point TimePoint_t;
-
     ULONG_PTR m_gdiplus_token;
-    TimePoint_t m_last_updated;
+    TimePoint_t m_last_updated = 0;
     std::mutex m_mutex;
 
-    ImagePtr_t m_screenshort;
+    ImagePtr_t m_screenshort = nullptr;
 
 public:
 
-    static ImagePtr_t get(TimeInt_t interval = std::chrono::seconds(10)) {
-        return instance().update(interval);
-    }
-
-    static bool expired(TimeInt_t interval = std::chrono::seconds(10)) {
-        return instance().is_expired(interval);
-    }
-
-private:
-    ScreenshotProvider();
-    ~ScreenshotProvider();
+    const TimePoint_t update_interval = 10;
 
     static ScreenshotProvider& instance() {
         static ScreenshotProvider instance;
         return instance;
     }
 
-    ImagePtr_t update(TimeInt_t interval);
-    bool is_expired(TimeInt_t interval);
+    ImagePtr_t get() {
+        return update();
+    }
+
+    bool is_expired(TimePoint_t since);
+    bool is_expired(std::string since_str);
+
+private:
+    ScreenshotProvider();
+    ~ScreenshotProvider();
+
+    ImagePtr_t update();
 };
 
