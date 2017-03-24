@@ -19,4 +19,4 @@ To compile open screensharing.sln solution in Microsoft Visual Studio 2015 and s
 When executing server ensure that _index.html_ file (can be found in server/index.html) is in a current directory — server considers current directory as web root.
 Http requests to server are limited and hard encoded. You can only put a new message, get screenshort and newly available messages.
 
-Command line would look like: _server.exe 127.0.0.1 5555_
+Command line would look like: _server.exe 192.168.1.1 5555_
