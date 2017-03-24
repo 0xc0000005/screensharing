@@ -36,7 +36,7 @@ public:
     static const int max_messages = 500;
     static const int activity_timeout = 5;
 
-private:
+protected:
     ChatRoom() {};
     ~ChatRoom() {};
 
