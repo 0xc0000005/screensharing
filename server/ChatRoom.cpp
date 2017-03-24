@@ -12,7 +12,7 @@ TimePoint_t ChatRoom::put_message(const std::string & msg, const std::string & f
     m_messages.push_front(Message_t{ current_time, from, msg });
     
     // purge messages history
-    if (max_messages != 0 && m_messages.size() > max_messages)
+    if (m_messages.size() > max_messages)
         m_messages.pop_back();
 
     return current_time;
