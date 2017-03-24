@@ -10,6 +10,7 @@ Supported features:
 + newly connected clients do not receive any chat history
 + server stores only last 500 messages
 + every message marked with ip-address it received from
++ host displays how many clients are connected
 
 Server developed in c++ using libevent library (http://libevent.org)
 
