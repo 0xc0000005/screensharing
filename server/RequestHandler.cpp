@@ -139,13 +139,18 @@ void RequestHandler::response_with_messages(evhttp_request * request)
     evkeyvalq parsed_query;
     evhttp_parse_query_str(query, &parsed_query);
     RAII_evkeyvalq_t parsed_uri_guard(&parsed_query, &evhttp_clear_headers);
+
+    auto connection = evhttp_request_get_connection(request);
+    char* peer_addr;
+    ev_uint16_t peer_port;
+    evhttp_connection_get_peer(connection, &peer_addr, &peer_port);
     
     const auto timestamp_str = evhttp_find_header(&parsed_query, "after");
     if (timestamp_str) {
         auto headers = evhttp_request_get_output_headers(request);
         evhttp_add_header(headers, "Content-Type", "application/json");
 
-        auto json = ChatRoom::instance().json_messages_after(timestamp_str);
+        auto json = ChatRoom::instance().json_messages_after(timestamp_str, peer_addr);
 
         auto out_buf = evhttp_request_get_output_buffer(request);
         evbuffer_add(out_buf, json.c_str(), json.length());
@@ -163,6 +168,7 @@ void RequestHandler::response_to_message(evhttp_request * request)
     char* peer_addr;
     ev_uint16_t peer_port;
     evhttp_connection_get_peer(connection, &peer_addr, &peer_port);
+
     std::string message;
     while (evbuffer_get_length(buf)) {
         char cbuf[128];
